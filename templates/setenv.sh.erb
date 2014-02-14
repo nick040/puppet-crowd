@@ -1,0 +1,5 @@
+JAVA_HOME="<%= scope.lookupvar('crowd::javahome') %>"
+JAVA_OPTS="-Xms128m -Xmx512m -XX:MaxPermSize=256m -Dfile.encoding=UTF-8 $JAVA_OPTS"
+
+export JAVA_HOME
+export JAVA_OPTS
