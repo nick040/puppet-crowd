@@ -40,6 +40,8 @@ class crowd (
 
   # JVM Settings
   $javahome,
+  $jvm_xms      = '256m',
+  $jvm_xmx      = '512m',
 
   # Crowd Settings
   $version      = '2.7.0',
