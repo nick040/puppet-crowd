@@ -31,19 +31,15 @@
 #
 # Author Name <merritt@krakowitzer.com>
 # Author Name <jvantonder@fnb.co.za>
+# Author Name <nick van der veeken>
 #
 # === Copyright
 #
-# Copyright 2013 Your name here, unless otherwise noted.
+# Copyright 2013-2015 Merritt Krakowitzer
 #
 class crowd (
 
-  # JVM Settings
-  $javahome,
-  $jvm_xms      = '256m',
-  $jvm_xmx      = '512m',
-
-  # Crowd Settings
+  # Crowd settings
   $version      = '2.7.0',
   $product      = 'crowd',
   $format       = 'tar.gz',
@@ -51,33 +47,55 @@ class crowd (
   $homedir      = '/home/crowd',
   $user         = 'root',
   $group        = 'root',
-  $uid          = '502',
-  $gid          = '502',
+  $shell        = '/sbin/nologin',
 
-# TODO: Configure the database as part of install
-#  # Database Settings
-#  $db           = 'postgresql',
-#  $dbuser       = 'crowdadm',
-#  $dbpassword   = 'mypassword',
-#  $dbserver     = 'localhost',
-#  $dbname       = 'crowd',
-#  $dbport       = '5432',
-#  $dbdriver     = 'org.postgresql.Driver',
-#  $dbtype       = 'postgres72',
-#  $poolsize     = '15',
+  # JVM settings
+  $javahome,
+  $java_opts    = '',
+  $jvm_xms      = '256m',
+  $jvm_xmx      = '512m',
+  $jvm_permgen  = '256m',
+  $jvm_support_recommended_args = '-XX:-HeapDumpOnOutOfMemoryError',
+
+  # Tomcat settings
+  $tomcat_port         = 8095,
+  $tomcat_max_threads  = 150,
+  $tomcat_accept_count = 100,
+  # Reverse https proxy setting for tomcat
+  $tomcat_proxy        = {},
+  $tomcat_context_path = '',
+  # Any additional tomcat params for server.xml
+  $tomcat_extras       = {},
+
+  # Database settings
+  $db           = 'postgresql',
+  $dbuser       = 'crowd',
+  $dbpassword   = 'crowd123',
+  $dbserver     = 'localhost',
+  $dbname       = 'crowd',
+  $dbport       = '5432',
+  $dbdriver     = 'org.postgresql.Driver',
+  $dbtype       = 'postgres72',
+  $poolsize     = '15',
 
   # Misc Settings
   $downloadURL  = 'http://www.atlassian.com/software/crowd/downloads/binary/',
 
-  $manage_service = true,
+ # Manage service
+  $service_name   = 'crowd',
+  $service_manage = true,
+  $service_ensure = running,
+  $service_enable = true,
 
 ) {
 
   $webappdir    = "${installdir}/atlassian-${product}-${version}"
-# TODO:  $dburl        = "jdbc:${db}://${dbserver}:${dbport}/${dbname}"
+  $dburl        = "jdbc:${db}://${dbserver}:${dbport}/${dbname}"
 
-  include crowd::install
-  include crowd::config
-  include crowd::service
+  anchor { 'crowd::start': } ->
+  class { '::crowd::install': } ->
+  class { '::crowd::config': } ~>
+  class { '::crowd::service': } ->
+  anchor { 'crowd::end': }
 
 }

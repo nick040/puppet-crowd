@@ -1,0 +1,176 @@
+#!/bin/bash
+# Crowd startup script
+#chkconfig: 2345 80 05
+#description: Crowd
+# Based on script at http://www.bifrost.org/problems.html
+### BEGIN INIT INFO
+# Provides: crowd
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Start up Crowd
+# Description:       Atlassian Crowd User Management
+#                    This service starts up the tomcat webapp.
+### END INIT INFO
+ACTION=$1
+SERVICE=crowd
+SHELL=/bin/bash
+LOCKFILE=/var/lock/subsys/$SERVICE
+
+JAVA_HOME=<%= scope.lookupvar('crowd::javahome') %>
+RUN_AS_USER=<%= scope.lookupvar('crowd::user') %>
+CATALINA_HOME=<%= scope.lookupvar('crowd::webappdir') %>/apache-tomcat
+
+function pid_int() {
+  PID=`pgrep -u $RUN_AS_USER java`
+}
+
+function pid() {
+  pid_int
+  RETVAL=$?
+  echo $PID
+  return $RETVAL
+}
+
+function status_int() {
+  STATUS=$( ps aux | grep "[c]atalina.base=$CATALINA_HOME" | wc -l )
+
+  if [ $STATUS -gt 0 ];then
+    ps -ef |grep $SERVICE |grep -v grep |awk '{ print $2 }' | $JAVA_HOME/bin/jps |grep -v Jps |grep -v grep > /dev/null
+    RETVAL=$?
+  else
+    RETVAL=1
+  fi
+
+  return $RETVAL
+}
+
+function status() {
+  status_int
+  RETVAL=$?
+
+  if [ $RETVAL -eq 0 ]; then
+    echo "$SERVICE is running"
+  else
+    echo "$SERVICE is stopped"
+  fi
+
+  return $RETVAL
+}
+
+function forcestart() {
+  echo "Starting Crowd: "
+
+  CMD="$CATALINA_HOME/bin/startup.sh"
+  if [ "x$USER" != "x$RUN_AS_USER" ]; then
+    su - $RUN_AS_USER -s $SHELL -c "$CMD"
+  else
+    $($CMD)
+  fi
+
+  RETVAL=$?
+
+  #If all is well touch the lock file
+  if [ $RETVAL -eq 0 ]; then
+    touch $LOCKFILE
+    echo "done."
+  else
+    echo "failed."
+  fi
+
+  return $RETVAL
+}
+
+function forcestop() {
+  echo "Shutting down Crowd: "
+
+  # Start Catalina, *-force* shutdown using kill command, sleep interval is *1* second
+  CMD="$CATALINA_HOME/bin/shutdown.sh -force 1"
+  if [ "x$USER" != "x$RUN_AS_USER" ]; then
+    su - $RUN_AS_USER -s $SHELL -c "$CMD"
+  else
+    $($CMD)
+  fi
+
+  RETVAL=$?
+
+  #If all is well remove the lockfile
+  if [ $RETVAL -eq 0 ]; then
+    rm -f $LOCKFILE
+    echo "done."
+  else
+    echo "failed."
+  fi
+
+  return $RETVAL
+}
+
+function start() {
+  if [ -f $LOCKFILE ]; then
+    status_int
+    if [ $? -eq 0 ]; then
+      echo "Crowd seems to be running: Lockfile found on $LOCKFILE. Please stop Crowd first."
+      return 1
+    else
+      printf "Removing stale lock file $LOCKFILE ... "
+      rm -f $LOCKFILE
+      echo "done."
+    fi
+  fi
+  
+  forcestart
+  RETVAL=$?
+
+  return $RETVAL
+}
+
+function stop() {
+  if [ -f $LOCKFILE ]; then
+    forcestop
+    RETVAL=$?
+  else
+    echo "Crowd does not seem to be running: Lockfile not found on $LOCKFILE."
+    RETVAL=1
+  fi
+
+  return $RETVAL
+}
+
+function restart() {
+  stop
+  start
+}
+
+function execute() {
+  case "$ACTION" in
+    pid)
+      pid
+      ;;
+    status)
+      status
+      ;;
+    forcestart)
+      forcestart
+      ;;
+    forcestop)
+      forcestop
+      ;;
+    start)
+      start
+      ;;
+    stop)
+      stop
+      ;;
+    restart)
+      restart
+      ;;
+    *)
+      echo "Usage: $0 {start|stop|restart|status|pid}"
+      exit 1
+  esac
+}
+
+execute
